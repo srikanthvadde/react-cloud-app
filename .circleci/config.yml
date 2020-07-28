@@ -1,60 +1,86 @@
 version: 2.1
 
-jobs:
-
-  build:
+executors:
+  app-executor:
     docker:
       - image: circleci/node:14.5.0
     working_directory: ~/repo
-    steps:
-      - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - restore_cache:
-          keys:
-            - app-{{ checksum "package.json" }}
-            - app-
-      - run:
-          name: Install dependency
-          command: npm install
-      - save_cache: 
-          paths:
+
+aliases:
+  - &show-current-branch-name
+      run:
+        name: Show current branch
+        command: echo ${CIRCLE_BRANCH}
+  - &restore_cache
+      restore_cache:
+        keys:
+          - app-{{ checksum "package.json" }}
+          - app- 
+  - &dependency-install
+      run:
+        name: Install dependency
+        command: npm install
+  - &saving_cache
+      save_cache:
+         paths:
             - node_modules
           key: app-{{ checksum "package.json" }}
+  - &install_aws_cli_dependencies
+      run:
+        name: Installing AWS CLI
+        working_directory: /
+        command: |
+          sudo apt-get -y -qq update
+          sudo apt-get -y install awscli
+          sudo apt-get -y install python-pip python-dev build-essential
+  - &build_project
+      run:
+        name: Build Project
+        command: |
+          npm install
+          npm run build
+          cd build
+          zip ../build.zip -r * .[^.]*
+          echo "Build successful"
+  - &install_lint
+      run:
+        name: Run EsLint
+        command: npm run lint
 
 
-  deploy-to-aws-s3:
-    docker:
-      - image: circleci/node:14.5.0
-    working_directory: ~/repo
+
+jobs:
+  build:
+    executor: app-executor
     steps:
       - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - run:
-          name: Installing AWS CLI
-          working_directory: /
-          command: |
-            sudo apt-get -y -qq update
-            sudo apt-get -y install awscli
-            sudo apt-get -y install python-pip python-dev build-essential
-      - run:
-          name: Build Project
-          command: |
-            npm install
-            npm run build
-            cd build
-            zip ../build.zip -r * .[^.]*
-            echo "Build successful"
+      - *show-current-branch-name
+      - *restore_cache
+      - *dependency-install
+      - *saving_cache
+      
+  linting:
+    executor: app-executor
+    steps:
+      - checkout
+      - *show-current-branch-name
+      - *restore_cache 
+      - *install_lint 
+
+  deploy-to-aws-s3:
+    executor: app-executor
+    steps:
+      - checkout
+      - *show-current-branch-name
+      - *install_aws_cli_dependencies
+      - *build_project
       - run:
           name: Deploy to AWS s3
           command: |
-            if [ "${CIRCLE_BRANCH}"" == "master" ]
+            if [ "${CIRCLE_BRANCH}" == "master" ]
             then 
               aws --region ${AWS_REGION} s3 sync  ~/repo/build s3://${AWS_BUCKET_PROD} --delete
-            elif [ "${CIRCLE_BRANCH}"" == "staging" ]
+            elif [ "${CIRCLE_BRANCH}" == "staging" ]
             then
               aws --region ${AWS_REGION} s3 sync  ~/repo/build s3://${AWS_BUCKET_STAGING} --delete
             else
@@ -63,29 +89,12 @@ jobs:
 
 
   deploy-to-aws-cloudfront:
-    docker:
-      - image: circleci/node:14.5.0
-    working_directory : ~/repo
+    executor: app-executor
     steps:
       - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - run:
-          name : Installing AWS CLI
-          working_directory: /
-          command: |
-            sudo apt-get -y -qq update
-            sudo apt-get -y install awscli
-            sudo apt-get -y install python-pip python-dev build-essential
-      - run:
-          name: Build Project
-          command: |
-            npm install
-            npm run build
-            cd build
-            zip ../build.zip -r * .[^.]*
-            echo "Build successful"
+      - *show-current-branch-name
+      - *install_aws_cli_dependencies
+      - *build_project
       - run:
           name: Deploy to Aws Cloudfront
           command: |
@@ -104,9 +113,18 @@ workflows:
   build_and_deploy:
     jobs:
       - build
-      - deploy-to-aws-s3:
+      - linting:
           requires:
             - build
+          filters:
+            branches:
+              only:
+                - develop
+                - staging
+                - master 
+      - deploy-to-aws-s3:
+          requires:
+            - linting
           filters:
             branches:
               only:

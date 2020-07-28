@@ -42,12 +42,7 @@ aliases:
           cd build
           zip ../build.zip -r * .[^.]*
           echo "Build successful"
-  - &install_lint
-      run:
-        name: Run EsLint
-        command: npm run lint
-
-
+  
 
 jobs:
   build:
@@ -65,7 +60,9 @@ jobs:
       - checkout
       - *show-current-branch-name
       - *restore_cache 
-      - *install_lint 
+      - run:
+          name: Run EsLint
+          command: npm run lint
 
   deploy-to-aws-s3:
     executor: app-executor

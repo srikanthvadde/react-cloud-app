@@ -62,7 +62,9 @@ jobs:
       - *restore_cache 
       - run:
           name: Run EsLint
-          command: npm run lint
+          command: |
+            rm -rf node_modules/eslint
+            npm run lint
 
   deploy-to-aws-s3:
     executor: app-executor

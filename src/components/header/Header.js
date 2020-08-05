@@ -7,7 +7,6 @@ const Header = () => {
   let [navClass, setNavClass] = useState(false);
 
   const HEADER_MENU_LIST = [
-
     {
       id: 1,
       iconClass: 'fas fa-film',

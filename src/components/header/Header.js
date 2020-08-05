@@ -2,37 +2,37 @@ import React, { useState } from 'react';
 import logo from '../../assets/cinema-logo.svg';
 import './Header.scss';
 
+const HEADER_MENU_LIST = [
+  {
+    id: 1,
+    iconClass: 'fas fa-film',
+    name: 'Now Playing',
+    type: 'now-playing'
+  },
+  {
+    id: 2,
+    iconClass: 'fas fa-fire',
+    name: 'Popular',
+    type: 'popular'
+  },
+  {
+    id: 3,
+    iconClass: 'fas fa-star',
+    name: 'Top Rated',
+    type: 'top-rated'
+  },
+  {
+    id: 4,
+    iconClass: 'fas fa-plus-square',
+    name: 'Upcoming',
+    type: 'upcoming'
+  }
+
+];
+
 const Header = () => {
   let [menuClass, setMenuClass] = useState(false);
   let [navClass, setNavClass] = useState(false);
-
-  const HEADER_MENU_LIST = [
-    {
-      id: 1,
-      iconClass: 'fas fa-film',
-      name: 'Now Playing',
-      type: 'now-playing'
-    },
-    {
-      id: 2,
-      iconClass: 'fas fa-fire',
-      name: 'Popular',
-      type: 'popular'
-    },
-    {
-      id: 3,
-      iconClass: 'fas fa-star',
-      name: 'Top Rated',
-      type: 'top-rated'
-    },
-    {
-      id: 4,
-      iconClass: 'fas fa-plus-square',
-      name: 'Upcoming',
-      type: 'upcoming'
-    }
-
-  ];
 
   const toggleMenu = () => {
     menuClass = !menuClass;
@@ -58,7 +58,7 @@ const Header = () => {
           <div
             className={`${menuClass ? 'header-menu-toggle is-active' : 'header-menu-toggle'}`}
             id="header-mobile-menu"
-            onClick={() => toggleMenu()}>
+            onClick={() => toggleMenu()} >
             <span className="bar"></span>
             <span className="bar"></span>
             <span className="bar"></span>
@@ -76,8 +76,6 @@ const Header = () => {
                 </li>
               )
             }
-            <li className="header-nav-item">Now Playing</li>
-            <li className="header-nav-item">Now Playing</li>
             <input
               className="search-input"
               type="text"

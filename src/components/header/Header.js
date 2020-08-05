@@ -27,7 +27,6 @@ const HEADER_MENU_LIST = [
     name: 'Upcoming',
     type: 'upcoming'
   }
-
 ];
 
 const Header = () => {

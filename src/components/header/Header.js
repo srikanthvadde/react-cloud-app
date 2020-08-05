@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState } from 'react';
 import logo from '../../assets/cinema-logo.svg';
 import './Header.scss';
@@ -62,25 +63,6 @@ const Header = () => {
             <span className="bar"></span>
             <span className="bar"></span>
           </div>
-          <ul className={`${navClass ? 'header-nav header-mobile-nav' : 'header-nav'}`}>
-            {
-              HEADER_MENU_LIST.map((data) =>
-                <li key={data.id}
-                  className="header-nav-item">
-                  <span className="header-list-name">
-                    <i className = {data.iconClass}></i>
-                  </span>
-                  &nbsp;
-                  <span className="header-list-name">{data.name}</span>
-                </li>
-              )
-            }
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search for a Movie"
-            />
-          </ul>
         </div>
       </div>
     </>

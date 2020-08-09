@@ -8,7 +8,7 @@ import Header from './components/header/Header';
 const App = () => {
   return (
     <Provider store={store}>
-      <Header/>
+      <Header />
       <div className="app">
         <h1> Setup React Redux</h1>
       </div>

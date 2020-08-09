@@ -1,53 +1,91 @@
+orbs: 
+  slack: circleci/slack@3.4.2
 version: 2.1
+executors:
+  app-executor:
+    docker:
+      - image: circleci/node:14.5.0
+    working_directory: ~/repo
+  slack-executor:
+    docker:
+      - image: 'cibuilds/base:latest'
+    resource_class: small
+
+aliases:
+  - &show-current-branch-name
+      run:
+        name: Show current branch
+        command: echo ${CIRCLE_BRANCH}
+  - &restore_cache
+      restore_cache:
+        keys:
+          - app-{{ checksum "package.json" }}
+          - app- 
+  - &dependency-install
+      run:
+        name: Install dependency
+        command: npm install
+  - &saving_cache
+      save_cache:
+        paths:
+          - node_modules
+        key: app-{{ checksum "package.json" }}
+  - &install_aws_cli_dependencies
+      run:
+        name: Installing AWS CLI
+        working_directory: /
+        command: |
+          sudo apt-get -y -qq update
+          sudo apt-get -y install awscli
+          sudo apt-get -y install python-pip python-dev build-essential
+  - &build_project
+      run:
+        name: Build Project
+        command: |
+          npm install
+          npm run build
+          cd build
+          zip ../build.zip -r * .[^.]*
+          echo "Build successful"
+  
 
 jobs:
-
   build:
-    docker:
-      - image: circleci/node:14.5.0
-    working_directory: ~/repo
+    executor: app-executor
     steps:
       - checkout
+      - *show-current-branch-name
+      - *restore_cache
+      - *dependency-install
+      - *saving_cache
+      
+  linting:
+    executor: app-executor
+    steps:
+      - checkout
+      - *show-current-branch-name
+      - *restore_cache 
       - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - restore_cache:
-          keys:
-            - app-{{ checksum "package.json" }}
-            - app-
-      - run:
-          name: Install dependency
-          command: npm install
-      - save_cache: 
-          paths:
-            - node_modules
-          key: app-{{ checksum "package.json" }}
+          name: Run EsLint
+          command: npm run lint
 
+  prettier:
+    executor: app-executor
+    steps:
+      - checkout
+      - *show-current-branch-name
+      - *restore_cache 
+      - run:
+          name: Run Prettier
+          command: npm run prettier:check 
 
   deploy-to-aws-s3:
-    docker:
-      - image: circleci/node:14.5.0
-    working_directory: ~/repo
+    executor: app-executor
     steps:
       - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - run:
-          name: Installing AWS CLI
-          working_directory: /
-          command: |
-            sudo apt-get -y -qq update
-            sudo apt-get -y install awscli
-            sudo apt-get -y install python-pip python-dev build-essential
-      - run:
-          name: Build Project
-          command: |
-            npm install
-            npm run build
-            cd build
-            zip ../build.zip -r * .[^.]*
-            echo "Build successful"
+      - *show-current-branch-name
+      - *install_aws_cli_dependencies
+      - *build_project
       - run:
           name: Deploy to AWS s3
           command: |
@@ -63,29 +101,12 @@ jobs:
 
 
   deploy-to-aws-cloudfront:
-    docker:
-      - image: circleci/node:14.5.0
-    working_directory : ~/repo
+    executor: app-executor
     steps:
       - checkout
-      - run:
-          name: Show current branch
-          command: echo ${CIRCLE_BRANCH}
-      - run:
-          name : Installing AWS CLI
-          working_directory: /
-          command: |
-            sudo apt-get -y -qq update
-            sudo apt-get -y install awscli
-            sudo apt-get -y install python-pip python-dev build-essential
-      - run:
-          name: Build Project
-          command: |
-            npm install
-            npm run build
-            cd build
-            zip ../build.zip -r * .[^.]*
-            echo "Build successful"
+      - *show-current-branch-name
+      - *install_aws_cli_dependencies
+      - *build_project
       - run:
           name: Deploy to Aws Cloudfront
           command: |
@@ -100,13 +121,40 @@ jobs:
               aws cloudfront create-invalidation --distribution-id ${DEV_DISTRIBUTION_ID} --paths /\*
             fi
 
+  notify-via-slack:
+    executor: slack-executor
+    steps:
+      - slack/notify:
+          message: ${CIRCLE_BRANCH} deployment is completed for AWS s3 and AWS Cloudfront
+          webhook: $CIRCLECI_SLACK_WEBHOOK
+      - slack/status:
+          webhook: $CIRCLECI_SLACK_WEBHOOK
+
 workflows:
   build_and_deploy:
     jobs:
       - build
-      - deploy-to-aws-s3:
+      - linting:
           requires:
             - build
+          filters:
+            branches:
+              only:
+                - develop
+                - staging
+                - master 
+      - prettier:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - develop
+                - staging
+                - master  
+      - deploy-to-aws-s3:
+          requires:
+            - prettier
           filters:
             branches:
               only:
@@ -122,6 +170,15 @@ workflows:
                 - develop
                 - staging
                 - master
+      - notify-via-slack:
+          requires:
+            - deploy-to-aws-cloudfront
+          filters:
+            branches:
+              only:
+                - develop
+                - staging
+                - master          
 
 
 
